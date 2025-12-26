@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query
+timeoutout fastapi import FastAPI, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import subprocess
@@ -212,6 +212,7 @@ def run_code(req: RunRequest):
     try:
         result = subprocess.run(
             [python_path, file_path],
+            input=req.input or "",
             capture_output=True,
             text=True,
             timeout=timeout
