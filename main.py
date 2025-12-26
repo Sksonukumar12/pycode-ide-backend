@@ -20,6 +20,9 @@ class InstallRequest(BaseModel):
     user_id: str
     package: str
 
+class LibsRequest(BaseModel):
+    user_id: str
+
 def get_user_env(user_id: str):
     user_dir = os.path.join(BASE_DIR, user_id)
     venv_dir = os.path.join(user_dir, "venv")
@@ -114,3 +117,24 @@ def run_code(req: RunRequest):
             os.remove(file_path)
         except:
             pass
+            
+@app.post("/libs")
+def list_installed_libs(req: LibsRequest):
+    _, pip_path = get_user_env(req.user_id)
+
+    try:
+        result = subprocess.run(
+            [pip_path, "list"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        return {
+            "output": result.stdout
+        }
+
+    except Exception as e:
+        return {
+            "output": str(e)
+        }
