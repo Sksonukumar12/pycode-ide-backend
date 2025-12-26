@@ -30,6 +30,7 @@ PROTECTED_PACKAGES = {
 class RunRequest(BaseModel):
     user_id: str
     code: str
+    input: str | None = None 
     timeout: int | None = None
 
 
