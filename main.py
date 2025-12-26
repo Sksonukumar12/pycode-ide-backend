@@ -168,4 +168,3 @@ def list_libs(req: LibsRequest):
     )
 
     return {"libs": r.stdout}
-    
