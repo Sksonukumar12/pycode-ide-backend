@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import subprocess
 import tempfile
@@ -12,16 +13,20 @@ os.makedirs(BASE_DIR, exist_ok=True)
 EXEC_TIMEOUT = 5
 INSTALL_TIMEOUT = 30
 
+
 class RunRequest(BaseModel):
     user_id: str
     code: str
+
 
 class InstallRequest(BaseModel):
     user_id: str
     package: str
 
+
 class LibsRequest(BaseModel):
     user_id: str
+
 
 def get_user_env(user_id: str):
     user_dir = os.path.join(BASE_DIR, user_id)
@@ -29,20 +34,20 @@ def get_user_env(user_id: str):
 
     if not os.path.exists(venv_dir):
         os.makedirs(user_dir, exist_ok=True)
-        subprocess.run(
-            ["python3", "-m", "venv", venv_dir],
-            check=True
-        )
+        subprocess.run(["python3", "-m", "venv", venv_dir], check=True)
 
     python_path = os.path.join(venv_dir, "bin", "python")
     pip_path = os.path.join(venv_dir, "bin", "pip")
 
     return python_path, pip_path
 
+
 @app.get("/")
 def root():
     return {"status": "PyCode IDE backend running"}
 
+
+# ---------------- INSTALL (NORMAL) ----------------
 @app.post("/install")
 def install_package(req: InstallRequest):
     _, pip_path = get_user_env(req.user_id)
@@ -63,17 +68,42 @@ def install_package(req: InstallRequest):
         }
 
     except subprocess.TimeoutExpired:
-        return {
-            "success": False,
-            "output": "Installation timed out"
-        }
+        return {"success": False, "output": "Installation timed out"}
 
     except Exception as e:
-        return {
-            "success": False,
-            "output": str(e)
-        }
+        return {"success": False, "output": str(e)}
 
+
+# ---------------- INSTALL (LIVE STREAM) ----------------
+def pip_install_stream(user_id: str, package: str):
+    _, pip_path = get_user_env(user_id)
+
+    process = subprocess.Popen(
+        [pip_path, "install", package],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+
+    for line in process.stdout:
+        yield f"data: {line}\n\n"
+
+    yield "data: __DONE__\n\n"
+
+
+@app.get("/install/stream")
+def install_stream(
+    user_id: str = Query(...),
+    package: str = Query(...)
+):
+    return StreamingResponse(
+        pip_install_stream(user_id, package),
+        media_type="text/event-stream"
+    )
+
+
+# ---------------- RUN CODE ----------------
 @app.post("/run")
 def run_code(req: RunRequest):
     python_path, _ = get_user_env(req.user_id)
@@ -101,40 +131,33 @@ def run_code(req: RunRequest):
         }
 
     except subprocess.TimeoutExpired:
-        return {
-            "stdout": "",
-            "stderr": "Execution timed out"
-        }
+        return {"stdout": "", "stderr": "Execution timed out"}
 
     except Exception as e:
-        return {
-            "stdout": "",
-            "stderr": str(e)
-        }
+        return {"stdout": "", "stderr": str(e)}
 
     finally:
         try:
             os.remove(file_path)
         except:
             pass
-            
+
+
+# ---------------- INSTALLED LIBS ----------------
 @app.post("/libs")
 def list_installed_libs(req: LibsRequest):
     _, pip_path = get_user_env(req.user_id)
 
     try:
         result = subprocess.run(
-            [pip_path, "list"],
+            [pip_path, "list", "--format=freeze"],
             capture_output=True,
             text=True,
             timeout=10
         )
 
-        return {
-            "output": result.stdout
-        }
+        return {"output": result.stdout}
 
     except Exception as e:
-        return {
-            "output": str(e)
-        }
+        return {"output": str(e)}
+        
