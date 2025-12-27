@@ -1,5 +1,6 @@
-import os, uuid, subprocess
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+import subprocess, os, uuid
 from models import RunRequest
 from utils import get_user_env
 from config import DEFAULT_EXEC_TIMEOUT
@@ -16,21 +17,23 @@ def run_code(req: RunRequest):
     with open(file_path, "w") as f:
         f.write(req.code)
 
-    try:
-        result = subprocess.run(
-            [python_path, file_path],
-            input=req.input or "",
-            capture_output=True,
-            text=True,
-            timeout=timeout
-        )
-        return {
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "exit_code": result.returncode
-        }
-    finally:
+    def stream():
         try:
-            os.remove(file_path)
-        except:
-            pass
+            process = subprocess.Popen(
+                [python_path, "-u", file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
+
+            for line in process.stdout:
+                yield line
+
+        finally:
+            try:
+                os.remove(file_path)
+            except:
+                pass
+
+    return StreamingResponse(stream(), media_type="text/plain")
+    
