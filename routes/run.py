@@ -3,7 +3,6 @@ from fastapi.responses import StreamingResponse
 import subprocess, os, uuid
 from models import RunRequest
 from utils import get_user_env
-from config import DEFAULT_EXEC_TIMEOUT
 
 router = APIRouter()
 
@@ -12,16 +11,15 @@ def run_code(req: RunRequest):
 
     python_path, _, user_dir = get_user_env(req.user_id)
 
-    # SAFE input override (NO stdin blocking)
-    injected_code = """
-import builtins
-
-def input(prompt=""):
-    if prompt:
-        print(prompt)
-    raise Exception("INPUT_REQUIRED")
-
-""" + req.code
+    # 🔐 SAFE input override (NO stdin, NO blocking)
+    injected_code = (
+        "import builtins\n"
+        "def input(prompt=''):\n"
+        "    if prompt:\n"
+        "        print(prompt)\n"
+        "    raise Exception('INPUT_REQUIRED')\n\n"
+        + req.code
+    )
 
     file_path = os.path.join(user_dir, f"{uuid.uuid4()}.py")
     with open(file_path, "w", encoding="utf-8") as f:
@@ -38,8 +36,8 @@ def input(prompt=""):
 
             for line in process.stdout:
                 if "INPUT_REQUIRED" in line:
-                    yield SAFEut required (interactive input not supported)\n"
-                    break
+                    yield "❗ Input required (interactive input not supported)\n"
+                    return
                 yield line
 
         finally:
