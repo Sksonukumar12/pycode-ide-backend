@@ -1,12 +1,13 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 import subprocess, os, uuid, sys
+from models import RunRequest
 from utils import get_user_env
 
 router = APIRouter()
 
 @router.post("/run")
-def run_code(req):
+def run_code(req: RunRequest):   # 🔥 IMPORTANT
 
     python_path, _, user_dir = get_user_env(req.user_id)
 
