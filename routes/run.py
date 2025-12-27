@@ -1,23 +1,22 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-import subprocess, os, uuid
-from models import RunRequest
+import subprocess, os, uuid, sys
 from utils import get_user_env
 
 router = APIRouter()
 
 @router.post("/run")
-def run_code(req: RunRequest):
+def run_code(req):
 
     python_path, _, user_dir = get_user_env(req.user_id)
 
-    # 🔐 SAFE input override (NO stdin, NO blocking)
     injected_code = (
-        "import builtins\n"
+        "import sys\n"
         "def input(prompt=''):\n"
         "    if prompt:\n"
         "        print(prompt)\n"
-        "    raise Exception('INPUT_REQUIRED')\n\n"
+        "    print('❗ INPUT_REQUIRED')\n"
+        "    sys.exit(0)\n\n"
         + req.code
     )
 
@@ -35,9 +34,6 @@ def run_code(req: RunRequest):
             )
 
             for line in process.stdout:
-                if "INPUT_REQUIRED" in line:
-                    yield "❗ Input required (interactive input not supported)\n"
-                    return
                 yield line
 
         finally:
