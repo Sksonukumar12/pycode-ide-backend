@@ -2,10 +2,11 @@ fastapi
 uvicorn
 python-multipart
 pillow
-opencv-python
+opencv-python-headless
 numpy
-torch
-torchvision
-gfpgan
+
+torch==2.0.1
+torchvision==0.15.2
+
 realesrgan
 basicsr
