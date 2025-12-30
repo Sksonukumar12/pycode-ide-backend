@@ -1,5 +1,11 @@
 fastapi
-uvicorn[standard]
-pydantic
+uvicorn
 python-multipart
-typing-extensions
+pillow
+opencv-python
+numpy
+torch
+torchvision
+gfpgan
+realesrgan
+basicsr
